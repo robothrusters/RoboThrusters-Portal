@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RoboThrusters — Team Portal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="logo.png" alt="RoboThrusters Logo" class="logo" />
+      <div>
+        <h1>RoboThrusters</h1>
+        <p class="tag">Engineering the Future of Robotics</p>
+      </div>
+    </div>
+    <nav class="nav">
+      <button data-tab="home" class="nav-btn active">Home</button>
+      <button data-tab="bots" class="nav-btn">Bots</button>
+      <button data-tab="team" class="nav-btn">Team Members</button>
+      <button data-tab="achievements" class="nav-btn">Achievements</button>
+      <button data-tab="calendar" class="nav-btn">Calendar</button>
+      <button id="portalBtn" class="nav-btn">Portal</button>
+      <button id="logoutBtn" class="nav-btn hidden">Logout</button>
+    </nav>
+  </header>
+
+  <main class="main">
+    <!-- HOME -->
+    <section id="home" class="tab-content visible">
+      <div class="hero">
+        <h2>Welcome to RoboThrusters</h2>
+        <p>We design competition-winning robots — line followers, racers, and more.</p>
+        <a class="cta" data-tab-target="bots">Explore Our Bots</a>
+      </div>
+    </section>
+
+    <!-- BOTS -->
+    <section id="bots" class="tab-content">
+      <h2>Bots</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Line Follower</h3>
+          <p>Autonomous line-following robot tuned for competition (Technoxian & Technosheen).</p>
+        </article>
+        <article class="card">
+          <h3>Robo Racer</h3>
+          <p>Joystick & Bluetooth controlled robo racer with PWM speed control.</p>
+        </article>
+        <article class="card">
+          <h3>Robo Soccer</h3>
+          <p>Team robot for robo-soccer, modular chassis and sensors integrated.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- TEAM MEMBERS -->
+    <section id="team" class="tab-content">
+      <h2>Team Members</h2>
+      <div class="team-grid" id="teamList"></div>
+
+      <div class="admin-actions">
+        <h3>Management (leaders / co-leaders)</h3>
+        <div class="form-row">
+          <input id="newName" placeholder="Full name (e.g. John Doe)" />
+          <select id="newRole">
+            <option value="core">Core Member</option>
+            <option value="co-leader">Co-Leader</option>
+            <option value="leader">Leader</option>
+          </select>
+          <button id="addMemberBtn">Add Member</button>
+        </div>
+        <p class="note">Only leaders/co-leaders can add/delete or change roles. Leader cannot be removed.</p>
+      </div>
+    </section>
+
+    <!-- ACHIEVEMENTS -->
+    <section id="achievements" class="tab-content">
+      <h2>Achievements & Vlogs</h2>
+      <div id="achList"></div>
+      <div class="small-form">
+        <input id="achTitle" placeholder="Title (e.g. Technoxian 9.0 Winner)" />
+        <input id="achLink" placeholder="Optional video link (YouTube)" />
+        <button id="addAchBtn">Add Achievement</button>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section id="calendar" class="tab-content">
+      <h2>Upcoming Events</h2>
+      <ul id="eventsList" class="events-list"></ul>
+      <div class="small-form">
+        <input id="eventTitle" placeholder="Event name" />
+        <input id="eventDate" type="date" />
+        <button id="addEventBtn">Add Event</button>
+      </div>
+    </section>
+
+    <!-- PORTAL / LOGIN -->
+    <section id="portal" class="tab-content">
+      <h2>Team Portal Login</h2>
+      <div class="login-card">
+        <label>Username (full name):</label>
+        <input id="loginUser" placeholder="e.g. soham tanveer" />
+        <label>Password:</label>
+        <input id="loginPass" type="password" placeholder="password" />
+        <div class="row">
+          <button id="loginBtn">Login</button>
+          <button id="openSecretBtn" class="hidden">Open Secret (leaders only)</button>
+        </div>
+        <p class="note">Password rule for members: firstName(lowercase)@123 (e.g. soham@123)</p>
+      </div>
+
+      <div id="portalArea" class="hidden">
+        <h3>Welcome, <span id="portalUser"></span> — <span id="portalRole"></span></h3>
+        <p>This area shows your current privileges. Use the navigation to access the site. Leaders & co-leaders see extra controls.</p>
+        <div id="secretLinkWrap" class="hidden">
+          <button id="enterSecretBtn">Enter Secret Tab</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECRET TAB -->
+    <section id="secret" class="tab-content">
+      <h2>Secret — Leaders & Co-Leaders</h2>
+      <div class="secret-area">
+        <div class="secret-card">
+          <h3>Custom PCB</h3>
+          <input type="file" id="pcbUpload" />
+          <textarea id="pcbNotes" placeholder="Notes about the PCB design"></textarea>
+          <button id="savePcbBtn">Save PCB</button>
+          <div id="pcbList" class="file-list"></div>
+        </div>
+
+        <div class="secret-card">
+          <h3>Chassis Design</h3>
+          <input type="file" id="chassisUpload" />
+          <textarea id="chassisNotes" placeholder="Notes about chassis"></textarea>
+          <button id="saveChassisBtn">Save Chassis</button>
+          <div id="chassisList" class="file-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© RoboThrusters</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
