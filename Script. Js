@@ -1,0 +1,308 @@
+/* RoboThrusters - client-side portal
+   - stores data in localStorage
+   - initial members seeded
+   - login: username = full name (case-insensitive)
+            password = firstNameLower + "@123"
+   - secret tab password = "robothrusters@123"
+*/
+
+const DEFAULT_MEMBERS = [
+  { name: 'soham tanveer', role: 'leader' },
+  { name: 'dhruv khatri', role: 'co-leader' },
+  { name: 'atharva chavan', role: 'core' },
+  { name: 'vihaan pande', role: 'core' }
+];
+
+const STORAGE_KEYS = {
+  members: 'rt_members_v1',
+  session: 'rt_session_v1',
+  achievements: 'rt_ach_v1',
+  events: 'rt_events_v1',
+  secret: 'rt_secret_v1'
+};
+
+function loadOrInit(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (!raw) {
+    localStorage.setItem(key, JSON.stringify(fallback));
+    return fallback;
+  }
+  try { return JSON.parse(raw); } catch(e){ localStorage.setItem(key, JSON.stringify(fallback)); return fallback; }
+}
+
+/* Seed initial data */
+let members = loadOrInit(STORAGE_KEYS.members, DEFAULT_MEMBERS);
+let achievements = loadOrInit(STORAGE_KEYS.achievements, []);
+let events = loadOrInit(STORAGE_KEYS.events, []);
+let secretData = loadOrInit(STORAGE_KEYS.secret, { pcbs: [], chassis: [] });
+
+/* UI helpers */
+const tabs = document.querySelectorAll('.nav-btn[data-tab]');
+tabs.forEach(btn=>{
+  btn.addEventListener('click', ()=>switchTab(btn.getAttribute('data-tab')));
+});
+document.querySelectorAll('[data-tab-target]').forEach(e=>e.addEventListener('click', ()=>switchTab(e.getAttribute('data-tab-target'))));
+
+function switchTab(name){
+  document.querySelectorAll('.tab-content').forEach(s=>s.classList.remove('visible'));
+  const el = document.getElementById(name);
+  if (el) el.classList.add('visible');
+  document.querySelectorAll('.nav-btn').forEach(nb=>nb.classList.remove('active'));
+  const navBtn = [...document.querySelectorAll('.nav-btn')].find(n=>n.getAttribute('data-tab')===name);
+  if (navBtn) navBtn.classList.add('active');
+  // special UI refresh
+  renderTeam();
+  renderAchievements();
+  renderEvents();
+}
+
+/* Team rendering + management */
+function renderTeam(){
+  const wrap = document.getElementById('teamList');
+  wrap.innerHTML = '';
+  members.forEach(m=>{
+    const div = document.createElement('div');
+    div.className='member';
+    div.innerHTML = `<h4>${capitalize(m.name)}</h4><div class="tagrole">${roleLabel(m.role)}</div>`;
+    // if logged in and leader/co-leader, add controls
+    const session = getSession();
+    if (session && (session.role === 'leader' || session.role === 'co-leader')) {
+      const controls = document.createElement('div');
+      controls.style.marginTop='8px';
+      // delete button (cannot delete leader)
+      if (m.role !== 'leader'){
+        const del = document.createElement('button');
+        del.textContent='Delete';
+        del.onclick = ()=> { if(confirm(`Delete ${m.name}?`)) removeMember(m.name); };
+        controls.appendChild(del);
+      }
+      // change role select
+      const sel = document.createElement('select');
+      ['core','co-leader','leader'].forEach(r=>{
+        const opt = document.createElement('option'); opt.value=r; opt.textContent=roleLabel(r);
+        if (r===m.role) opt.selected=true; sel.appendChild(opt);
+      });
+      sel.onchange = ()=> changeRole(m.name, sel.value);
+      controls.appendChild(sel);
+      div.appendChild(controls);
+    }
+    wrap.appendChild(div);
+  });
+}
+
+function addMemberUI(){
+  const name = document.getElementById('newName').value.trim().toLowerCase();
+  const role = document.getElementById('newRole').value;
+  if (!name) return alert('Enter a name');
+  if (members.some(m=>m.name===name)) return alert('Member exists');
+  if (!isAuthorizedToManage()) return alert('Only leaders and co-leaders can add members');
+  members.push({name, role});
+  saveMembers();
+  document.getElementById('newName').value='';
+  renderTeam();
+}
+
+function removeMember(name){
+  if (!isAuthorizedToManage()) return alert('Not authorized');
+  if (name.toLowerCase() === 'soham tanveer') return alert('Cannot delete Leader');
+  members = members.filter(m=>m.name !== name);
+  saveMembers();
+  renderTeam();
+}
+
+function changeRole(name, role){
+  if (!isAuthorizedToManage()) return alert('Not authorized');
+  // Prevent demoting/deleting last leader (enforce at least one leader)
+  if (role !== 'leader' && name.toLowerCase() === 'soham tanveer' && !members.some(m=>m.role==='leader' && m.name !== name)) {
+    return alert('Cannot remove the last leader');
+  }
+  members = members.map(m=> m.name===name ? {...m, role} : m );
+  saveMembers();
+  renderTeam();
+}
+
+function saveMembers(){
+  localStorage.setItem(STORAGE_KEYS.members, JSON.stringify(members));
+}
+
+/* Achievements */
+function renderAchievements(){
+  const el = document.getElementById('achList'); el.innerHTML='';
+  achievements.forEach(a=>{
+    const d = document.createElement('div'); d.className='card';
+    d.innerHTML = `<h4>${a.title}</h4><p>${a.link ? `<a href="${a.link}" target="_blank">Video</a>` : ''}</p>`;
+    el.appendChild(d);
+  });
+}
+function addAchievement(){
+  const title = document.getElementById('achTitle').value.trim();
+  const link = document.getElementById('achLink').value.trim();
+  if (!title) return alert('Add title');
+  achievements.unshift({title, link});
+  localStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(achievements));
+  document.getElementById('achTitle').value='';
+  document.getElementById('achLink').value='';
+  renderAchievements();
+}
+
+/* Events calendar */
+function renderEvents(){
+  const el = document.getElementById('eventsList'); el.innerHTML='';
+  events.sort((a,b)=> new Date(a.date) - new Date(b.date));
+  events.forEach(ev=>{
+    const li = document.createElement('li'); li.innerHTML = `<strong>${ev.title}</strong> — ${ev.date}`;
+    el.appendChild(li);
+  });
+}
+function addEvent(){
+  const title = document.getElementById('eventTitle').value.trim();
+  const date = document.getElementById('eventDate').value;
+  if (!title || !date) return alert('Provide both');
+  events.push({title, date});
+  localStorage.setItem(STORAGE_KEYS.events, JSON.stringify(events));
+  document.getElementById('eventTitle').value='';
+  document.getElementById('eventDate').value='';
+  renderEvents();
+}
+
+/* Login & session handling
+   - username: full name (case-insensitive)
+   - password: firstNameLower + '@123'
+*/
+function getSession(){ return JSON.parse(localStorage.getItem(STORAGE_KEYS.session) || 'null'); }
+
+function login(){
+  const user = document.getElementById('loginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value.trim();
+  if (!user || !pass) return alert('Enter credentials');
+  const member = members.find(m=>m.name === user);
+  if (!member) return alert('Unknown member');
+  const firstName = user.split(' ')[0];
+  const expected = `${firstName}@123`;
+  if (pass !== expected) return alert('Invalid password (use firstName@123)');
+  const session = { name: user, role: member.role };
+  localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(session));
+  refreshSessionUI();
+  alert('Logged in as ' + capitalize(user));
+}
+
+function logout(){
+  localStorage.removeItem(STORAGE_KEYS.session);
+  refreshSessionUI();
+}
+
+function refreshSessionUI(){
+  const session = getSession();
+  document.getElementById('logoutBtn').classList.toggle('hidden', !session);
+  document.getElementById('portalBtn').classList.toggle('hidden', !!session);
+  const portalArea = document.getElementById('portalArea');
+  const portalWrap = document.getElementById('portal');
+  if (session){
+    portalArea.classList.remove('hidden');
+    document.getElementById('portalUser').textContent = capitalize(session.name);
+    document.getElementById('portalRole').textContent = roleLabel(session.role);
+    // show secret link only for leader/co-leader
+    const secretWrap = document.getElementById('secretLinkWrap');
+    secretWrap.classList.toggle('hidden', !(session.role==='leader' || session.role==='co-leader'));
+  } else {
+    portalArea.classList.add('hidden');
+  }
+  renderTeam();
+}
+
+/* Secret tab protection:
+   - leaders & co-leaders can enter with additional password: robothrusters@123
+*/
+function openSecretPrompt(){
+  const session = getSession();
+  if (!session || !(session.role==='leader' || session.role==='co-leader')) {
+    return alert('Only leaders/co-leaders can open the secret area.');
+  }
+  const p = prompt('Enter secret password:');
+  if (p === 'robothrusters@123'){
+    // show secret tab
+    switchTab('secret');
+  } else {
+    alert('Wrong secret password.');
+  }
+}
+
+/* Secret file saving (stored as metadata + dataURL) */
+function saveFileToSecret(kind, fileInput, notesInput, listElId){
+  const f = fileInput.files[0];
+  if (!f) return alert('Choose a file first');
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const payload = {
+      name: f.name,
+      dataURL: e.target.result,
+      notes: notesInput.value.trim(),
+      uploadedAt: new Date().toISOString()
+    };
+    secretData[kind].push(payload);
+    localStorage.setItem(STORAGE_KEYS.secret, JSON.stringify(secretData));
+    notesInput.value='';
+    fileInput.value='';
+    renderSecretList(kind, listElId);
+  };
+  reader.readAsDataURL(f);
+}
+function renderSecretList(kind, listElId){
+  const list = document.getElementById(listElId);
+  list.innerHTML = '';
+  secretData[kind].forEach((it, idx)=>{
+    const d = document.createElement('div');
+    d.style.padding='8px'; d.style.borderRadius='8px'; d.style.marginTop='8px'; d.style.background='rgba(255,255,255,0.02)';
+    d.innerHTML = `<strong>${it.name}</strong> <small>${new Date(it.uploadedAt).toLocaleString()}</small>
+                   <div>${it.notes ? it.notes : '<em>No notes</em>'}</div>
+                   <div style="margin-top:6px"><a href="${it.dataURL}" download="${it.name}">Download</a></div>`;
+    list.appendChild(d);
+  });
+}
+
+/* Utility */
+function capitalize(s){
+  return s.split(' ').map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' ');
+}
+function roleLabel(r){
+  if (r==='leader') return 'Leader';
+  if (r==='co-leader') return 'Co-Leader';
+  return 'Core Member';
+}
+function isAuthorizedToManage(){
+  const s = getSession();
+  return s && (s.role === 'leader' || s.role === 'co-leader');
+}
+
+/* wiring events */
+document.getElementById('addMemberBtn').addEventListener('click', addMemberUI);
+document.getElementById('addAchBtn').addEventListener('click', addAchievement);
+document.getElementById('addEventBtn').addEventListener('click', addEvent);
+document.getElementById('loginBtn').addEventListener('click', login);
+document.getElementById('logoutBtn').addEventListener('click', ()=>{ logout(); alert('Logged out'); });
+document.getElementById('openSecretBtn').addEventListener('click', openSecretPrompt);
+document.getElementById('enterSecretBtn').addEventListener('click', ()=> {
+  // second prompt to enter the secret in portal area
+  openSecretPrompt();
+});
+
+// secret file saves
+document.getElementById('savePcbBtn').addEventListener('click', ()=> saveFileToSecret('pcbs', document.getElementById('pcbUpload'), document.getElementById('pcbNotes'), 'pcbList'));
+document.getElementById('saveChassisBtn').addEventListener('click', ()=> saveFileToSecret('chassis', document.getElementById('chassisUpload'), document.getElementById('chassisNotes'), 'chassisList'));
+
+// initial render
+renderTeam();
+renderAchievements();
+renderEvents();
+renderSecretList('pcbs','pcbList');
+renderSecretList('chassis','chassisList');
+refreshSessionUI();
+
+/* Make top nav functional: show/hide portal */
+document.getElementById('portalBtn').addEventListener('click', ()=> switchTab('portal'));
+document.getElementById('logoutBtn').addEventListener('click', ()=> { logout(); switchTab('home'); });
+
+// Quick: show portal open button if logged in
+if (getSession()) {
+  document.getElementById('portalBtn').classList.remove('hidden');
+}
